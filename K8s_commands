@@ -1,0 +1,151 @@
+1.We have deployed a number of PODs. They are labelled with 'tier', 'env' and 'bu'. How many PODs exist in the 'dev' environment?
+kubectl get pods --selector env=dev
+
+2.Identify the POD which is 'prod', part of 'finance' BU and is a 'frontend' tier?
+kubectl get pods --selector bu=finance,env=prod,tier=frontend
+
+3. Do any taints exist on node01?
+kubectl describe node node01 | grep Taint
+
+4.Create a taint on node01 with key of 'spray', value of 'mortein' and effect of 'NoSchedule'
+kubectl taint nodes node01 spray=mortein:NoSchedule
+
+5.Remove the taint on master, which currently has the taint effect of NoSchedule
+kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule-
+Note: command for adding/removing taint for a node looks similar, except removing taint command ends with "-".
+
+6. Apply a label color=blue to node node01
+kubectl label node node01 color=blue
+
+7.What is the image used by the POD deployed by the kube-flannel-ds-amd64 DaemonSet?
+kubectl describe daemonset kube-flannel-ds-amd64 --namespace=kube-system
+
+8.List DaemonSets in all namespaces
+kubectl get ds --all-namespaces
+
+9.Create a static pod named static-busybox that uses the busybox image and the command sleep 1000
+
+kubectl run --restart=Never --image=busybox static-busybox --dry-run -o yaml --command -- sleep 1000 > /etc/kubernetes/manifests/static-busybox.yaml
+kubectl run --restart=Never --image=busybox static-busybox --dry-run -o yaml --command -- sleep 1000 > static-busybox.yaml
+
+10. A user - 'USER5' - has expressed concerns accessing the application. Identify the cause of the issue.Inspect the logs of the POD
+kubectl logs -f webapp-1(podname)
+
+11. Inspect the log file inside the pod
+kubectl -n elastic-stack exec -it app cat /log/app.log
+
+https://youtu.be/xG_BzvHMaAE -- CKA test recording in youtube 831 33674
+
+
+12.On which nodes are the applications hosted on?
+kubectl get pods -o wide
+
+13.We need to take node01 out for maintenance. Empty the node of all applications and mark it unschedulable.
+kubectl drain node01 --ignore-daemonsets
+
+14.The maintenance tasks have been completed. Configure the node to be schedulable again.
+kubectl uncordon node01
+
+15. How to drain the node forcefully?
+
+16. Upgrade the master components to exact version v1.18.0
+Run the command apt install kubeadm=1.18.0-00 and then kubeadm upgrade apply v1.18.0 and then apt install kubelet=1.18.0-00 to upgrade the kubelet on the master node
+
+17.Upgrade the worker node to the exact version v1.18.0
+Run the commands: apt install kubeadm=1.18.0-00 and then kubeadm upgrade node. Finally, run apt install kubelet=1.18.0-00.
+
+18.What is the version of ETCD running on the cluster?
+Look at the ETCD Logs using command "kubectl logs etcd-master -n kube-system" or check the ETCD pod kubectl describe pod etcd-master -n kube-system
+
+19.At what address do you reach the ETCD cluster from your master node?
+Use the command kubectl describe pod etcd-master -n kube-system and look for --listen-client-urls
+
+20.The master nodes in our cluster are planned for a regular maintenance reboot tonight. While we do not anticipate anything to go wrong, we are required to take the necessary backups. Take a snapshot of the ETCD database using the built-in snapshot functionality.
+
+Store the backup file at location /tmp/snapshot-pre-boot.db
+
+ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key snapshot save /tmp/snapshot-pre-boot.db
+
+https://github.com/mmumshad/kubernetes-the-hard-way/blob/master/practice-questions-answers/cluster-maintenance/backup-etcd/etcd-backup-and-restore.md
+
+
+21.Restore the original state of the cluster using the backup file.
+
+ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+     --name=master \
+     --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key \
+     --data-dir /var/lib/etcd-from-backup \
+     --initial-cluster=master=https://127.0.0.1:2380 \ 
+     snapshot restore /tmp/snapshot-pre-boot.db
+
+22.What is the Common Name (CN) configured on the Kube API Server Certificate?
+OpenSSL Syntax: openssl x509 -in file-path.crt -text -noout
+
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text
+
+22.What is the Condition of the newly created Certificate Signing Request object?
+
+kubectl get csr
+
+23. Approve the CSR Request
+kubectl certificate approve akshay
+
+24. To view the yaml file of Certificate Signing Request
+kubectl get csr agent-smith -o yaml
+
+25. To Reject CSR request
+kubectl get csr agent-smith -o yaml
+
+26. To delete the CSR request
+kubectl delete csr agent-smith
+
+27.How many clusters are defined in the default kubeconfig file?
+kubectl config view
+28.How many roles exist in the default namespace?
+ kubectl get roles
+ 
+29.How many ClusterRoles do you see defined in the cluster?
+kubectl get clusterroles --no-headers | wc -l
+
+30.How many ClusterRoleBindings exist on the cluster?
+kubectl get clusterrolebindings --no-headers | wc
+
+31.What level of permission does the cluster-admin role grant?
+kubectl describe clusterrole cluster-admin
+
+32.A new user michelle joined the team. She will be focusing on the nodes in the cluster. Create the required ClusterRoles and ClusterRoleBindings so she gets access to the nodes.
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: node-admin
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "watch", "list", "create", "delete"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: michelle-binding
+subjects:
+- kind: User
+  name: michelle
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: node-admin
+  apiGroup: rbac.authorization.k8s.iomaster
+  
+33.Create a secret object with the credentials required to access the registry
+
+Name: private-reg-cred
+Username: dock_user
+Password: dock_password
+Server: myprivateregistry.com:5000
+Email: dock_user@myprivateregistry.com
+
+answer:
+Run command kubectl create secret docker-registry private-reg-cred --docker-username=dock_user --docker-password=dock_password --docker-server=myprivateregistry.com:5000 --docker-email=dock_user@myprivateregistry.com
